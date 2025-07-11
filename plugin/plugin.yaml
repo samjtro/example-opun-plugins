@@ -1,0 +1,57 @@
+name: code-analyzer
+version: 1.0.0
+description: Analyzes code structure and complexity
+author: "Opun Examples"
+type: go
+runtime: go
+entry_point: "main.go"
+
+dependencies:
+  - "github.com/rizome-dev/opun/pkg/plugin"
+
+requirements:
+  go_version: ">=1.21"
+  timeout: 30
+
+commands:
+  - name: analyze
+    description: Analyze code file for complexity and structure
+    arguments:
+      - name: file
+        description: File to analyze
+        type: string
+        required: true
+    examples:
+      - "/analyze main.go"
+
+tools:
+  - name: count-lines
+    description: Count lines of code excluding comments and blank lines
+    input_schema:
+      type: object
+      properties:
+        file_path:
+          type: string
+          description: Path to file
+      required: ["file_path"]
+    output_schema:
+      type: object
+      properties:
+        total_lines:
+          type: integer
+        code_lines:
+          type: integer
+        comment_lines:
+          type: integer
+        blank_lines:
+          type: integer
+
+config_schema:
+  type: object
+  properties:
+    max_complexity:
+      type: integer
+      default: 10
+    ignore_tests:
+      type: boolean
+      default: false

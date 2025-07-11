@@ -1,0 +1,94 @@
+name: test-and-fix
+command: testfix
+description: Run tests, analyze failures, and suggest fixes
+version: 1.0.0
+
+variables:
+  - name: test_command
+    description: "Command to run tests"
+    type: string
+    required: false
+    default: "make test"
+  - name: test_directory
+    description: "Directory containing tests"
+    type: string
+    required: false
+    default: "./test"
+
+settings:
+  output_dir: "./test-results/{{timestamp}}"
+  stop_on_error: false
+  timeout: 300
+
+agents:
+  # First agent: Run tests and capture results
+  - id: test-runner
+    name: "Test Runner"
+    provider: claude
+    model: sonnet
+    prompt: |
+      Run the following test command and analyze the results:
+      ```
+      {{test_command}}
+      ```
+      
+      Provide a structured summary of:
+      1. Total tests run
+      2. Tests passed
+      3. Tests failed
+      4. Any error messages or stack traces
+      5. Test execution time
+    output: test-results.md
+    settings:
+      timeout: 120
+      quality_mode: standard
+      
+  # Second agent: Analyze failures
+  - id: failure-analyzer
+    name: "Failure Analyzer"
+    provider: gemini
+    model: pro
+    depends_on: ["test-runner"]
+    condition: "test-runner.success"
+    prompt: |
+      Based on the test results:
+      {{file:./test-results/{{timestamp}}/test-results.md}}
+      
+      For each failed test:
+      1. Identify the root cause of failure
+      2. Determine if it's a code bug or test issue
+      3. Categorize the type of error (logic, syntax, assertion, etc.)
+      4. Rate the severity (critical, high, medium, low)
+    output: failure-analysis.md
+    settings:
+      timeout: 90
+      continue_on_error: true
+      
+  # Third agent: Suggest fixes
+  - id: fix-suggester
+    name: "Fix Suggester"
+    provider: claude
+    model: sonnet
+    depends_on: ["failure-analyzer"]
+    prompt: |
+      Based on the failure analysis:
+      {{failure-analyzer.output}}
+      
+      For each identified issue:
+      1. Provide specific code changes to fix the issue
+      2. Explain why the fix will work
+      3. Include any necessary imports or dependencies
+      4. Consider edge cases
+      
+      Format as actionable steps with code snippets.
+    output: suggested-fixes.md
+    settings:
+      quality_mode: deep-think
+      interactive: true
+    on_success:
+      - type: log
+        message: "Test analysis and fix suggestions completed!"
+
+metadata:
+  tags: ["testing", "debugging", "automation"]
+  estimated_duration: "3-5 minutes"
